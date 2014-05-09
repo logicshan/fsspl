@@ -1,0 +1,64 @@
+------------------------------------------------------------------------
+--- Formal Syntax and Semantics of Programming Languages:    -----------
+--- A Laboratory Based Approach                              -----------
+
+FTP Site: ftp.cs.uiowa.edu
+Subdirectory: pub/slonnegr
+
+Although these files have been extensively tested, we cannot guarantee 
+their correctness. Please notify me by email of any problems that I might 
+be able to remedy.
+                                            Ken Slonneger
+                                            slonnegr@cs.uiowa.edu
+
+Chapter 2: Introduction to Laboratory Activities
+
+    scan       Stand-alone scanner for Wren
+    scanp      Scanner and partial parser for Wren 
+    nodecs.w   A Wren program that scanp can parse
+
+Chapter 3: Attribute Grammars     
+
+    context    Context checker for Wren following an attribute grammar
+
+Chapter 4: Two-Level Grammars      
+
+    hollerith  Hollerith string checker using a two-level grammar
+
+Chapter 5: The Lambda Calculus       
+
+    normal     Normal order reducer for an applied lambda calculus
+
+Chapter 6: Self-Definition of Programming Languages       
+
+
+Chapter 7: Translational Semantics       
+
+    translate  Compiler for Wren following an attribute grammar
+
+Chapter 8: Traditional Operational Semantics          
+
+    secd       SECD machine for evaluating an applied lambda calculus
+    sos        Interpreter of Wren following a specifiction using
+                    structural operational semantics
+
+Chapter 9: Denotational Semantics           
+ 
+    ds         Interpeter of Wren following a denotational specification
+                    with interactive input and output
+    dsd        Interpeter of Wren following a denotational specification
+                    with denotational input and output
+
+Chapter 10: Domain Theory and Fixed-Point Semantics         
+
+    fixed      Normal order reducer of an applied lambda calculus
+                    with definitions and a fixed-point operator
+
+Chapter 12: Algebraic Semantics        
+
+    algeb      Interpreter of a subset of Wren following an
+                       algebraic specification
+
+Chapter 13: Action Semantics        
+
+    action     Translator of Pelican into action notation

@@ -1,0 +1,320 @@
+
+%    Checking Context Constraints in Wren Using an Attribute Grammar
+%    ======== ======= =========== == ==== ===== == ========= =======
+
+% File: context
+
+%------------------------------------------------------------------------------
+
+program(TokenList) -->
+  [program], [ide(I)], [is],
+  { addItem(I,program, [],InitialSymbolTable) },
+  blck(Block, InitialSymbolTable),
+  { flattenplus([program, ide(I), is, Block], TokenList) }.
+
+blck([ErrorMsg, Decs, begin, Cmds, end], InitialSymbolTable) -->
+  decs(Decs,DecsSymbolTable),
+  { tableIntersection(InitialSymbolTable, DecsSymbolTable,Result),
+    tableUnion(InitialSymbolTable, DecsSymbolTable, SymbolTable),
+    ( Result=nonEmpty,
+         ErrorMsg='ERROR: Program name used as variable name' ;
+      Result=empty,
+         ErrorMsg=noError) },
+  [begin], cmds(Cmds,SymbolTable), [end].
+
+decs(Decs,SymbolTable) --> 
+    dec(Dec,SymbolTable1), restdecs(Dec,SymbolTable1,Decs,SymbolTable).
+
+decs([],[]) --> []. 
+
+restdecs(Dec,SymbolTable1,[Dec,ErrorMsg|Decs],SymbolTable) --> 
+    decs(Decs,SymbolTable2),
+    { tableIntersection(SymbolTable1,SymbolTable2,Result),
+      tableUnion(SymbolTable1,SymbolTable2,SymbolTable),
+      (Result=nonEmpty,
+           ErrorMsg='ERROR: Duplicate declaration of an identifier' ;
+       Result=empty, 
+           ErrorMsg=noError) }.
+
+restdecs(Dec,SymbolTable,[Dec],SymbolTable) --> [].
+
+dec([var, Vars, ErrorMsg, colon, T, semicolon],SymbolTable) --> 
+  [var], varlist(Vars, ErrorMsg), [colon], type(T), [semicolon],
+  { delete(comma,Vars,NewVars),
+    buildSymbolTable(NewVars,T,SymbolTable) }.
+
+varlist(Vars,ErrorMsg) --> [ide(Var)], restvars(ide(Var),Vars,ErrorMsg).
+
+restvars(ide(Var),[ide(Var), comma |Vars],ErrorMsg) --> 
+      [comma], varlist(Vars,ErrorMsg1),
+      { member(ide(Var),Vars),
+           ErrorMsg='ERROR: Duplicate variable in listing' ;
+       % else
+           ErrorMsg = ErrorMsg1 }.
+
+restvars(ide(Var),[ide(Var)],ErrorMsg) --> [], { ErrorMsg=noError }.
+
+type(integer) --> [integer].
+type(boolean) --> [boolean].
+
+cmds(Cmds,SymbolTable) --> 
+                 command(Cmd,SymbolTable), restcmds(Cmd,Cmds,SymbolTable).
+restcmds(Cmd,[Cmd,semicolon|Cmds],SymbolTable) --> 
+                                       [semicolon], cmds(Cmds,SymbolTable).
+restcmds(Cmd,[Cmd],SymbolTable)  --> [].
+
+
+command(skip,SymbolTable) --> [skip].    
+
+command([read, ide(V), ErrorMsg], SymbolTable)  --> 
+   [read], [ide(V)],
+   { lookupType(V,SymbolTable,VarType),
+     (VarType = integer,   ErrorMsg=noError ;
+      VarType = undefined, ErrorMsg='ERROR: Variable not delcared' ;
+      (VarType = boolean ; VarType = program),
+                       ErrorMsg='ERROR: Integer variable expected for read') }.
+
+command([write,E,ErrorMsg],SymbolTable) --> 
+  [write], expr(E,SymbolTable,integer).
+
+command([ide(V), assign, E, ErrorMsg], SymbolTable) -->  
+  [ide(V)], [assign], 
+  { lookupType(V,SymbolTable,VarType) }, 
+   ({ VarType = integer }, 
+          (expr(E,SymbolTable,integer), { ErrorMsg=noError } ;
+           expr(E,SymbolTable,boolean), 
+                           { ErrorMsg='ERROR: Integer expression expected' }) ;
+    { VarType = boolean }, 
+          (expr(E,SymbolTable,boolean), { ErrorMsg=noError } ;
+           expr(E,SymbolTable,integer), 
+                           { ErrorMsg='ERROR: Boolean expression expected' }) ;
+    { VarType = undefined, ErrorMsg='ERROR: Target of assign not declared' ;
+      VarType = program, ErrorMsg='ERROR: Program name used as a variable'},
+      expr(E,SymbolTable,undefined)).
+
+command([while,Test,do,Body,end,while], SymbolTable) --> 
+   [while], boolexpr(Test,SymbolTable,boolean), [do], 
+        cmds(Body,SymbolTable), [end], [while].
+
+command([if,Test,then,Then,Else],SymbolTable) --> 
+       [if], boolexpr(Test,SymbolTable,boolean), [then],
+            cmds(Then,SymbolTable),restif(Else,SymbolTable).
+
+restif([else,Else,end,if],SymbolTable) --> 
+       [else], cmds(Else,SymbolTable), [end], [if].
+restif([end,if],SymbolTable) --> [end], [if].
+
+expr(E,SymbolTable,integer) --> intexpr(E,SymbolTable,integer).        
+expr(E,SymbolTable,boolean) --> boolexpr(E,SymbolTable,boolean).
+expr(E,SymbolTable,undefined) --> intexpr(E,SymbolTable,undefined).
+expr(E,SymbolTable,undefined) --> boolexpr(E,SymbolTable,undefined).
+
+intexpr(E,SymbolTable,Type) --> 
+        term(T,SymbolTable,Type), restintexpr(T,E,SymbolTable,Type).
+restintexpr(T, E, SymbolTable,Type) --> 
+     weakop(Op), term(T1,SymbolTable,Type), 
+     restintexpr([T,Op,T1],E,SymbolTable,Type).
+restintexpr(E,E,SymbolTable,Type) --> [].
+
+term(T,SymbolTable,Type) --> 
+    element(P,SymbolTable,Type), restterm(P,T,SymbolTable,Type).
+restterm(P,T,SymbolTable,Type) --> 
+    strongop(Op), element(P1,SymbolTable,Type), 
+    restterm([P,Op,P1],T,SymbolTable,Type).
+restterm(T,T,SymbolTable,Type) --> [].
+
+element(num(N),SymbolTable,Type) --> [num(N)].            
+
+
+
+
+
+
+element([ide(V),ErrorMsg],SymbolTable,Type) --> 
+   [ide(V)],
+   { lookupType(V,SymbolTable,VarType),
+    (VarType = integer, Type = integer, ErrorMsg=noError ;
+     VarType = undefined, ErrorMsg='ERROR: Variable not declared' ;
+     Type = undefined, ErrorMsg=noError ;
+     (VarType = boolean ; VarType = program), 
+                      ErrorMsg='ERROR: Integer variable expected') }.
+
+element([lparen,E,rparen],SymbolTable,Type) --> 
+    [lparen], intexpr(E,SymbolTable,Type), [rparen].
+
+element([minus|E],SymbolTable,Type) --> 
+    [minus], element(E, SymbolTable,Type).
+
+weakop(plus) --> [plus].      weakop(minus) --> [minus].
+
+strongop(times) --> [times].  strongop(divides) --> [divides].
+
+boolexpr(E,SymbolTable,Type) --> 
+    boolterm(T,SymbolTable,Type), restboolexpr(T,E,SymbolTable,Type).
+restboolexpr(T,E,SymbolTable,Type) --> 
+      [or], boolterm(T1,SymbolTable,Type), 
+      restboolexpr([T,or,T1],E,SymbolTable,Type).
+restboolexpr(E,E,SymbolTable,Type) --> [].
+
+boolterm(T,SymbolTable,Type) --> 
+    boolelement(P,SymbolTable,Type), restboolterm(P,T,SymbolTable,Type).
+restboolterm(P,T,SymbolTable,Type) --> 
+    [and], boolelement(P1,SymbolTable,Type), 
+    restboolterm([P,and,P1],T,SymbolTable,Type).
+restboolterm(T,T,SymbolTable,Type) --> [].
+
+boolelement(true,SymbolTable,Type) --> [true].             
+boolelement(false,SymbolTable,Type) --> [false].
+
+boolelement([ide(V),ErrorMsg],SymbolTable,Type) --> [ide(V)],
+   { lookupType(V,SymbolTable,VarType),
+    (VarType = boolean,   ErrorMsg=noError ;
+     VarType = undefined, ErrorMsg='ERROR: Variable not declared' ;
+     (VarType = integer ; VarType = program), 
+                       ErrorMsg='ERROR: Boolean variable expected') }.
+
+boolelement(K,SymbolTable,Type) --> comparison(K,SymbolTable).
+
+boolelement([lparen, E, rparen],SymbolTable,Type) --> 
+               [lparen], boolexpr(E,SymbolTable,Type), [rparen].
+
+boolelement([not,lparen,E,rparen],SymbolTable,Type) --> 
+               [not], [lparen],boolexpr(E,SymbolTable,Type), [rparen].
+
+comparison([E1,R,E2],SymbolTable) --> 
+      intexpr(E1,SymbolTable,integer), rel(R), intexpr(E2,SymbolTable,integer),
+      {Type=boolean, ErrorMsg=noError ;
+       % else
+       ErrorMsg='ERROR: Comparison not expected' }.
+
+rel(equal) --> [equal].  rel(neq) --> [neq].    rel(less) --> [less].    
+rel(grtr) --> [grtr].    rel(gteq) --> [gteq].  rel(lteq) --> [lteq].
+
+
+
+
+
+
+
+%------------------------------------------------------------------------------
+%---  Auxiliary Functions -----------------------------------------------------
+
+lookupType(Tag, [], undefined).
+lookupType(Tag, [(Tag,Type)|RestTable], Type).
+lookupType(Tag, [(Tag1,Type1)| RestTable], Type) :- 
+                                  lookupType(Tag, RestTable, Type).
+
+tableIntersection([], Table2, empty).
+tableIntersection(Table1, [], empty).
+tableIntersection([(Tag,Type1) | RestTable ], Table2, nonEmpty) :-
+  lookupType(Tag,Table2,Type2), (Type2=integer ; Type2=boolean).
+tableIntersection([(Tag,Type1) | RestTable], Table2, Result) :-
+  tableIntersection(RestTable,Table2,Result).
+
+addItem(Tag, Type, Table, [(Tag,Type) | Table]).
+
+
+buildSymbolTable([], Type, []).
+buildSymbolTable([ide(Var)|RestVars], Type, SymbolTable):-
+  buildSymbolTable(RestVars,Type,SymbolTable1),
+  addItem(Var,Type,SymbolTable1,SymbolTable).
+
+
+tableUnion([], Table2, Table2).
+tableUnion([(Tag1,Type1)|RestTable1],Table2,[(Tag1,Type1)|Result]):-
+  tableUnion(RestTable1,Table2,Result).
+
+%------------------------------------------------------------------------------
+%---- Utilities ---------------------------------------------------------------
+
+member(Item,[Item|Rest]).
+member(Item,[Item1|Rest]) :- member(Item,Rest).
+
+concat([],L,L).
+concat([Head|Tail],L,[Head|Rest]):-concat(Tail, L, Rest).
+
+delete(Item, [], []).
+delete(Item,[Item|Rest],Result):- delete(Item,Rest,Result).
+delete(Item,[Head|Rest],[Head|Result]):- delete(Item,Rest,Result).
+
+flattenplus([],[]).
+flattenplus([noError|Rest],FlatRest):-flattenplus(Rest,FlatRest).
+flattenplus(X,[X]):- atom(X) ; integer(X) ; X = ide(I) ; X = num(N).
+flattenplus([Head|Tail],Result) :-
+  flattenplus(Head,Result1), flattenplus(Tail,Result2),
+  concat(Result1,Result2, Result).
+
+printList([]) :- nl.
+printList([H|T]) :- write(H), nl, printList(T).
+
+%------------------------------------------------------------------------------
+
+go :- nl,write('>>> Checking Context Constraints in Wren <<<'), nl, nl,
+      write('Enter name of source file:  '), nl, getfilename(File), nl, 
+      see(File), scan(Tokens), seen, write('Scan successful'), nl, !,
+      write(Tokens), nl, nl,
+      program(TokenList,Tokens,[eop]), write('Parse successful'), nl, !,
+      printList(TokenList), nl.
+
+getfilename(W) :- get0(C),restfilename(C,Cs),name(W,Cs).
+   restfilename(C,[C|Cs]) :- filechar(C), get0(D), restfilename(D,Cs).
+   restfilename(C,[]).
+
+
+
+
+%------------------------------------------------------------------------------
+%---------  Scanner  ----------------------------------------------------------
+
+scan([T|Lt]) :-  tab(4), getch(C), gettoken(C, T, D), restprog(T, D, Lt).
+
+getch(C) :- get0(C), (endline(C),nl,tab(4) ; endfile(C),nl ; put(C)).
+
+restprog(eop, C, []).        % end of file reached with previous character
+restprog(T,   C, [U|Lt]) :- gettoken(C, U, D), restprog(U, D, Lt).
+
+gettoken(C, eop, 0) :- endfile(C).  
+gettoken(C, T, D) :- single(C,T), getch(D).
+gettoken(C, T, E) :- double(C,U),getch(D),(pair(C,D,T),getch(E) ; T=U,E=D).
+gettoken(C, T, E) :- lower(C), getch(D), restid(D, Lc, E),   
+                     name(I, [C|Lc]), (reswd(I),T=I ; T=ide(I)).
+  restid(C, [C|Lc], E) :- idchar(C), getch(D),restid(D,Lc,E).
+  restid(C, [],     C).    % end identifier if C is id character
+gettoken(C, num(N), E) :- digit(C), getch(D), restnum(D, Lc, E),  
+                          name(N, [C|Lc]). 
+  restnum(C, [C|Lc], E) :- digit(C), getch(D), restnum(D, Lc, E).
+  restnum(C, [],     C).    % end number if C is not a digit
+gettoken(C, T, E) :- whitespace(C), getch(D), gettoken(D,T,E).
+gettoken(C, T, E) :- write('Illegal character: '), put(C), nl, abort.
+
+reswd(program).  reswd(is).       reswd(begin).    reswd(end).   
+reswd(var).      reswd(integer).  reswd(boolean).  reswd(read). 
+reswd(write).    reswd(while).    reswd(do).       reswd(if).    
+reswd(then).     reswd(else).     reswd(skip).     reswd(or).  
+reswd(and).      reswd(true).     reswd(false).    reswd(not). 
+
+single(40,lparen).   single(41,rparen).    single(42,times).
+single(43,plus).     single(44,comma).     single(45,minus).
+single(47,divides).  single(59,semicolon). single(61,equal).
+
+double(58,colon).    double(60,less).      double(62,grtr). 
+
+pair(58,61,assign).       % :=
+pair(60,61,lteq).         % <=
+pair(60,62,neq).          % <>
+pair(62,61,gteq).         % >=
+
+%------------------------------------------------------------------------------
+
+lower(C) :- 97=<C,C=<122.       % a-z
+upper(C) :- 65=<C,C=<90.        % A-Z
+digit(C)  :- 48=<C,C=<57.       % 0-9
+
+space(32).     tabch(9).      period(46).      slash(47).
+endline(10).   endfile(26).   endfile(-1).
+
+whitespace(C) :- space(C) ; tabch(C) ; endline(C).
+idchar(C) :- lower(C) ; digit(C).
+filechar(C) :- lower(C) ; upper(C) ; digit(C) ; period(C) ; slash(C).
+
+%------------------------------------------------------------------------------

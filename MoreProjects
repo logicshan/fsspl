@@ -1,0 +1,21 @@
+
+            Additional Projects
+            ===================
+
+Chapter 3
+
+   Construct an attribute grammar that checks the context conditions
+   for Pelican. 
+
+
+Chapter 7
+
+   Retarget the attribute grammar compiler using three-address code
+   as used as the intermediate language in actual compilers. See [Aho86].
+
+
+Chapter 8
+
+   Provide a structural operational semantics specification of Pelican.
+
+

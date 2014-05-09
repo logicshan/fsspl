@@ -1,0 +1,379 @@
+
+% File: wren/algeb
+
+%   Interpreting Wren via Algebraic Semantics
+%   ============ ==== === ========= =========
+
+%------------------------------------------------------------------------------
+%--  Interpreter  -------------------------------------------------------------
+
+meaning(prog(Ide,Block),Input,Output) :-                            % Ev1
+             perform(Block,Input,Output).
+
+perform(blck(Decs,Commands),Input,Output) :-                       % Ev2
+             elaborate(Decs,emptySto,Sto),
+             execute(Commands,Sto,Input,emptyFile,FinalSto,_,Output).
+
+%------------------------------------------------------------------------------
+
+elaborate([Dec|Decs],StoIn,StoOut) :-                               % Ev3
+                                elaborate(Dec,StoIn,Sto),
+                                elaborate(Decs,Sto,StoOut).
+
+elaborate([],Sto,Sto).                                              % Ev4
+
+elaborate(dec(integer,[Var|Vars]),StoIn,StoOut) :-                  % Ev5
+                                updateSto(StoIn,Var,zero,Sto),
+                                elaborate(dec(integer,Vars),Sto,StoOut).
+
+elaborate(dec(boolean,[Var|Vars]),StoIn,StoOut) :-                  % Ev6
+                                updateSto(StoIn,Var,false,Sto),
+                                elaborate([dec(boolean,Vars)],Sto,StoOut).
+
+elaborate(dec(Type,[]),Sto,Sto).
+
+execute([Cmd|Cmds],StoIn,InputIn,OutputIn,
+                                StoOut,InputOut,OutputOut) :-       % Ev7
+        execute(Cmd,StoIn,InputIn,OutputIn,Sto,Input,Output),
+        execute(Cmds,Sto,Input,Output,StoOut,InputOut,OutputOut).
+
+execute([],Sto,Input,Output,Sto,Input,Output).                      % Ev8
+
+execute(skip,Sto,Input,Output,Sto,Input,Output).                    % Ev9
+
+execute(read(Var),StoIn,emptyFile,Output,StoOut,_,Output) :-        % Ev10
+        write('Fatal Error: Reading an empty file'), nl, abort.
+
+execute(read(Var),StoIn,cons(First,Rest),Output,StoOut,Rest,Output) :- 
+        toNat(First,Value),                                         % Ev10
+        updateSto(StoIn,Var,Value,StoOut).
+
+execute(write(Expr),Sto,Input,OutputIn,Sto,Input,OutputOut) :-      % Ev11
+        evaluate(Expr,Sto,ExprValue),
+        toNum(ExprValue,Value),
+        mkFile(Value,ValueOut),
+        concat(OutputIn,ValueOut,OutputOut).
+
+execute(assign(Ide,Expr),StoIn,Input,Output,StoOut,Input,Output) :-  % Ev12
+        evaluate(Expr,StoIn,Value),
+        updateSto(StoIn,Ide,Value,StoOut).
+
+execute(while(Expr,Cmds),StoIn,InputIn,OutputIn,                     % Ev13
+                                       StoOut,InputOut,OutputOut) :-
+  evaluate(Expr,StoIn,BoolVal), 
+  iterate(BoolVal,Expr,Cmds,StoIn,InputIn,OutputIn,
+                                                  StoOut,InputOut,OutputOut).
+
+iterate(false,Expr,Cmds,Sto,Input,Output,Sto,Input,Output).
+iterate(true,Expr,Cmds,StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut) :-
+   execute(Cmds,StoIn,InputIn,OutputIn,Sto,Input,Output),
+   execute(while(Expr,Cmds),Sto,Input,Output,StoOut,InputOut,OutputOut).
+
+execute(if(Expr,Cmds),StoIn,InputIn,OutputIn,                       % Ev14
+                                          StoOut,InputOut,OutputOut) :-
+   evaluate(Expr,StoIn,BoolVal), 
+   select(BoolVal,Cmds,[ ],StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut).
+
+execute(if(Expr,Cmds1,Cmds2),StoIn,InputIn,OutputIn,                % Ev15
+                                          StoOut,InputOut,OutputOut) :-
+   evaluate(Expr,StoIn,BoolVal), 
+   select(BoolVal,Cmds1,Cmds2,StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut).
+
+select(true,Cmds1,Cmds2,StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut) :-
+            execute(Cmds1,StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut).
+select(false,Cmds1,Cmds2,StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut) :-
+            execute(Cmds2,StoIn,InputIn,OutputIn,StoOut,InputOut,OutputOut).
+
+%------------------------------------------------------------------------------
+
+evaluate(exp(plus,Expr1,Expr2),Sto,Result) :-                       % Ev16
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       add(Val1,Val2,Result).
+
+evaluate(exp(minus,Expr1,Expr2),Sto,Result) :-                      % Ev17
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       sub(Val1,Val2,Result).
+
+evaluate(exp(times,Expr1,Expr2),Sto,Result) :-                      % Ev18
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       mul(Val1,Val2,Result).
+
+evaluate(exp(divides,Expr1,Expr2),Sto,Result) :-                    % Ev19
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       div(Val1,Val2,Result).
+
+evaluate(exp(equal,Expr1,Expr2),Sto,Bool) :-                        % Ev20
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       eq(Val1,Val2,Bool).
+
+evaluate(exp(neq,Expr1,Expr2),Sto,Bool) :-                          % Ev21
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       eq(Val1,Val2,BoolVal), bnot(BoolVal,Bool).
+
+evaluate(exp(less,Expr1,Expr2),Sto,Bool) :-                         % Ev22
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       less(Val1,Val2,Bool).
+
+evaluate(exp(lteq,Expr1,Expr2),Sto,Bool) :-                         % Ev23
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       lesseq(Val1,Val2,Bool).
+
+evaluate(exp(grtr,Expr1,Expr2),Sto,Bool) :-                         % Ev24
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       greater(Val1,Val2,Bool).
+
+evaluate(exp(gteq,Expr1,Expr2),Sto,Bool) :-                         % Ev25
+       evaluate(Expr1,Sto,Val1),
+       evaluate(Expr2,Sto,Val2),
+       greatereq(Val1,Val2,Bool).
+
+evaluate(num(Constant),Sto,Value) :- toNat(Constant,Value).         % Ev26
+
+evaluate(ide(Ide),Sto,Value) :- applySto(Sto,Ide,Value).            % Ev27
+
+%------------------------------------------------------------------------------
+%--  Booleans module  ---------------------------------------------------------
+
+boolean(true).
+boolean(false).
+
+bnot(true,false).
+bnot(false,true).
+
+and(true,P,P).
+and(false,true,false).
+and(false,false,false).
+
+or(false,P,P).
+or(true,P,true) :- boolean(P).
+
+xor(X,Y,Z) :- or(X,Y,XorY), and(X,Y,XandY), bnot(XandY,NotXandY),
+              and(XorY,NotXandY,Z).
+
+beq(X,Y,Result) :- xor(X,Y,XxorY), bnot(XxorY,Result).
+
+%------------------------------------------------------------------------------
+%--  Naturals module  ---------------------------------------------------------
+
+natural(zero).
+natural(succ(M)) :- natural(M).
+
+add(M,zero,M) :- natural(M).
+add(M,succ(N),succ(R)) :- add(M,N,R).
+
+sub(zero,succ(N),R) :- write('Fatal Error: Illegal subtraction'), nl, abort.
+sub(M,zero,M) :- natural(M).
+sub(succ(M),succ(N),R) :- sub(M,N,R).
+
+mul(M,zero,zero) :- natural(M).
+mul(M,succ(zero),M) :- natural(M).
+mul(M,succ(succ(N)),R) :- mul(M,succ(N),R1), add(M,R1,R).
+
+div(M,zero,R) :- write('Fatal Error: Division by zero'), nl, abort.
+div(M,succ(N),zero) :- less(M,succ(N),true).
+div(M,succ(N),succ(Quotient)) :- less(M,succ(N),false),
+                                 sub(M,succ(N),Dividend), 
+                                 div(Dividend,succ(N),Quotient).
+
+eq(zero,zero,true).
+eq(zero,succ(N),false) :- natural(N).
+eq(succ(M),zero,false) :- natural(M).
+eq(succ(M),succ(N),BoolValue) :- eq(M,N,BoolValue).
+
+less(zero,succ(N),true) :- natural(N).
+less(M,zero,false) :- natural(M).
+less(succ(M),succ(N),BoolValue) :- less(M,N,BoolValue).
+
+lesseq(M,N,BoolValue) :- less(M,N,B1), eq(M,N,B2), or(B1,B2,BoolValue).
+
+greater(M,N,BoolValue) :- less(N,M,BoolValue).
+
+greatereq(M,N,BoolValue) :- greater(M,N,B1), eq(M,N,B2), or(B1,B2,BoolValue).
+
+%------------------------------------------------------------------------------
+%--  Converters for Naturals  -------------------------------------------------
+
+toNat(0,zero).
+toNat(Num,succ(M)) :- Num>0, NumMinus1 is Num-1, toNat(NumMinus1,M).
+
+toNum(zero,0).
+toNum(succ(M),Num) :- toNum(M,Num1), Num is Num1 + 1.
+
+%------------------------------------------------------------------------------
+%--  Files module  ------------------------------------------------------------
+
+concat(emptyFile,F,F).
+concat(cons(Value,F1),F2,cons(Value,Result)) :- concat(F1,F2,Result).
+
+mkFile(Value,cons(Value,emptyFile)).
+
+empty(emptyFile,true).
+empty(cons(_,_),false).
+
+%------------------------------------------------------------------------------
+%--  Tables module  -----------------------------------------------------------
+
+updateSto(Sto,Ide,Val,sto(Ide,Val,Sto)).
+
+applySto(sto(Ide,Entry,Sto),Ide,Entry).
+applySto(sto(I,V,Sto),Ide,Val) :- applySto(Sto,Ide,Val).
+
+%------------------------------------------------------------------------------
+%-- Utilities -----------------------------------------------------------------
+
+go :- nl,write('>>> Interpreting Wren via Algebraic Semantics <<<'),
+      nl,nl,write('Enter name of source file: '),nl,getfilename(FileName),nl, 
+      see(FileName), scan(Tokens), seen, write('Scan successful'), nl, !,
+%     write(Tokens), nl, nl,
+      program(AST,Tokens,[eop]), write('Parse successful'), nl, !,
+%     write(AST), nl, nl,
+      write('Enter input list followed by a period: '), nl,
+      read(InFile), toFile(InFile,Input),
+      meaning(AST,Input,Output), toFile(OutFile,Output), nl, nl,
+      write('Output = '), write(OutFile).
+
+toFile([],emptyFile).
+toFile([First|Rest],cons(First,RestOfFile)) :- toFile(Rest,RestOfFile).
+
+getfilename(W) :- get0(C),restfilename(C,Cs),name(W,Cs).
+   restfilename(C,[C|Cs]) :- filechar(C),get0(D),restfilename(D,Cs).
+   restfilename(C,[]).
+
+
+%------------------------------------------------------------------------------
+%---------  Parser  -----------------------------------------------------------
+
+program(prog(I,B)) --> [program],[ide(I)],[is],blck(B).
+
+blck(block(Decs,Cmds)) --> decs(Decs),[begin],cmds(Cmds),[end].
+
+decs(Decs) --> dec(Dec), restdecs(Dec,Decs).
+  restdecs(Dec,[Dec|Decs]) --> decs(Decs).
+  restdecs(Dec,[Dec])      --> [].
+decs([]) --> [].
+
+dec(dec(T,Vars)) --> [var], varlist(Vars), [colon], type(T), [semicolon].
+
+type(integer) --> [integer].          type(boolean) --> [boolean].
+
+varlist(Vars) --> [ide(Var)], restvars(Var,Vars).
+  restvars(Var,[Var|Vars]) --> [comma], varlist(Vars).
+  restvars(Var,[Var])      --> [].
+
+cmds(Cmds) --> command(Cmd), restcmds(Cmd,Cmds).
+  restcmds(Cmd,[Cmd|Cmds]) --> [semicolon], cmds(Cmds).
+  restcmds(Cmd,[Cmd])      --> [].
+
+command(skip) --> [skip].    
+
+command(read(I))  --> [read], [ide(I)].
+
+command(write(E)) --> [write], expr(E). 
+
+command(if(Expr,Cmds1,Cmds2)) --> 
+                         [if],boolexpr(Expr),[then],cmds(Cmds1),restif(Cmds2).
+  restif(Cmds2) --> [else],cmds(Cmds2),[end],[if].
+  restif(skip) --> [end],[if].
+
+command(while(Expr,Cmds)) --> 
+                  [while],boolexpr(Expr), [do], cmds(Cmds), [end],[while].
+
+command(assign(V,E)) --> [ide(V)], [assign], expr(E).
+
+expr(E) --> intexpr(E).                 expr(E) --> boolexpr(E).
+
+intexpr(E) --> term(T), restintexpr(T,E).
+  restintexpr(T,E) --> weakop(Op), term(T1), restintexpr(exp(Op,T,T1),E).
+  restintexpr(E,E) --> [].
+
+term(T) --> element(P), restterm(P,T).
+  restterm(P,T) --> strongop(Op), element(P1), restterm(exp(Op,P,P1),T).
+  restterm(T,T) --> [].
+
+element(num(N)) --> [num(N)].            element(ide(I)) --> [ide(I)].
+element(E) --> [lparen], intexpr(E), [rparen].
+element(minus(E)) --> [minus], element(E).
+
+boolexpr(E) --> boolterm(T),restboolexpr(T,E).
+  restboolexpr(T,E) --> [or], boolterm(T1), restboolexpr(bexp(or,T,T1),E).
+  restboolexpr(E,E) --> [].
+
+boolterm(T) --> boolelement(P), restboolterm(P,T).
+  restboolterm(P,T) --> [and], boolelement(P1), restboolterm(bexp(and,P,P1),T).
+  restboolterm(T,T) --> [].
+
+boolelement(true) --> [true].             boolelement(false) --> [false].
+boolelement(ide(I)) --> [ide(I)].         boolelement(K) --> comparison(K).
+boolelement(E) --> [lparen], boolexpr(E), [rparen].
+boolelement(bnot(E)) --> [not],[lparen],boolexpr(E),[rparen].
+
+comparison(exp(R,E1,E2)) --> intexpr(E1),rel(R),intexpr(E2).
+
+rel(equal) --> [equal].  rel(neq) --> [neq].    rel(less) --> [less].    
+rel(grtr) --> [grtr].    rel(gteq) --> [gteq].  rel(lteq) --> [lteq].
+weakop(plus) --> [plus].      weakop(minus) --> [minus].
+strongop(times) --> [times].  strongop(divides) --> [divides].
+
+%------------------------------------------------------------------------------
+%---------  Scanner  ----------------------------------------------------------
+
+scan([T|Lt]) :-  tab(4), getch(C), gettoken(C, T, D), restprog(T, D, Lt).
+
+getch(C) :- get0(C), (endline(C),nl,tab(4) ; endfile(C),nl ; put(C)).
+
+restprog(eop, C, []).        % end of file reached with previous character
+restprog(T,   C, [U|Lt]) :- gettoken(C, U, D), restprog(U, D, Lt).
+
+gettoken(C, eop, 0) :- endfile(C).  
+gettoken(C, T, D) :- single(C,T), getch(D).
+gettoken(C, T, E) :- double(C,U),getch(D),(pair(C,D,T),getch(E) ; T=U,E=D).
+gettoken(C, T, E) :- lower(C), getch(D), restid(D, Lc, E),   
+                     name(I, [C|Lc]), (reswd(I),T=I ; T=ide(I)).
+  restid(C, [C|Lc], E) :- idchar(C), getch(D),restid(D,Lc,E).
+  restid(C, [],     C).    % end identifier if C is not id character
+gettoken(C, num(N), E) :- digit(C), getch(D), restnum(D, Lc, E),  
+                          name(N, [C|Lc]). 
+  restnum(C, [C|Lc], E) :- digit(C), getch(D), restnum(D, Lc, E).
+  restnum(C, [],     C).    % end number if C is not a digit
+gettoken(C, T, E) :- whitespace(C), getch(D), gettoken(D,T,E).
+gettoken(C, T, E) :- write('Illegal character: '), put(C), nl, abort.
+
+reswd(program).  reswd(is).       reswd(begin).    reswd(end).   
+reswd(var).      reswd(integer).  reswd(boolean).  reswd(read). 
+reswd(write).    reswd(while).    reswd(do).       reswd(if).    
+reswd(then).     reswd(else).     reswd(skip).     reswd(or).  
+reswd(and).      reswd(true).     reswd(false).    reswd(not). 
+
+single(40,lparen).   single(41,rparen).    single(42,times). 
+single(43,plus).     single(44,comma).     single(45,minus). 
+single(47,divides).  single(59,semicolon). single(61,equal).
+
+double(58,colon).    double(60,less).      double(62,grtr).   
+
+pair(58,61,assign).       % :=
+pair(60,61,lteq).         % <=
+pair(60,62,neq).          % <>
+pair(62,61,gteq).         % >=
+
+%-----------------------------------------------------------------------
+
+lower(C) :- 97=<C,C=<122.       % a-z
+upper(C) :- 65=<C,C=<90.        % A-Z
+digit(C)  :- 48=<C,C=<57.       % 0-9
+
+space(32).     tabch(9).      period(46).      slash(47).     
+endline(10).   endfile(26).   endfile(-1).
+
+whitespace(C) :- space(C) ; tabch(C) ; endline(C).
+idchar(C) :- lower(C) ; digit(C).
+filechar(C) :- lower(C) ; upper(C) ; digit(C) ; period(C) ; slash(C).
+

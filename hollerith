@@ -1,0 +1,118 @@
+
+
+%  Two Level Grammar for Hollerith String Literals 
+%  === ===== ======= === ========= ====== ======== 
+
+% File: hollerith
+
+%--------------------------------------------------------------------------
+
+digit([digitZeroSymbol],  []).
+digit([digitOneSymbol],   [i]).
+digit([digitTwoSymbol],   [i,i]).
+digit([digitThreeSymbol], [i,i,i]).
+digit([digitFourSymbol],  [i,i,i,i]).
+digit([digitFiveSymbol],  [i,i,i,i,i]).
+digit([digitSixSymbol],   [i,i,i,i,i,i]).
+digit([digitSevenSymbol], [i,i,i,i,i,i,i]).
+digit([digitEightSymbol], [i,i,i,i,i,i,i,i]).
+digit([digitNineSymbol],  [i,i,i,i,i,i,i,i,i]).
+
+constant(DIGIT, TALLETY) :- digit(DIGIT, TALLETY).
+constant(DIGITS, TALLETY) :-
+                         splitDigits(DIGITS, LeadingDIGITS, UnitDIGIT),
+                         constant(LeadingDIGITS, TALLETY2),
+                         digit(UnitDIGIT, TALLETY3),
+                         concatTenPlusDigit(TALLETY2, TALLETY3, TALLETY).
+
+splitDigits([D], [], [D]).
+splitDigits([Head|Tail],[Head|Result],Unit):-
+                         splitDigits(Tail, Result, Unit).
+
+concatTenPlusDigit(TALLETY2, TALLETY3, TALLETY):-
+                         concat(TALLETY2, TALLETY2, TwoTimes),
+                         concat(TwoTimes, TwoTimes, FourTimes),
+                         concat(FourTimes, FourTimes, EightTimes),
+                         concat(EightTimes, TwoTimes, TenTimes),
+                         concat(TenTimes, TALLETY3, TALLETY).
+
+concat([],L,L).
+concat([Head|Tail],L,[Head|Result]):-concat(Tail,L,Result).
+
+alpha(a).  alpha(b).  alpha(c).  alpha(d).  alpha(e).  alpha(f).
+alpha(g).  alpha(h).  alpha(i).  alpha(j).  alpha(k).  alpha(l).
+alpha(m).  alpha(n).  alpha(o).  alpha(p).  alpha(q).  alpha(r).
+alpha(s).  alpha(t).  alpha(u).  alpha(v).  alpha(w).  alpha(x).
+alpha(y).  alpha(z).
+
+hollerith(Number,hollerith,Letters):-
+                         constant(Number, TALLETY),
+                         letterSeq(TALLETY, Letters).
+
+letterSeq([i],[LETTER]):-
+                         alpha(LETTER),
+                         write('valid Hollerith string').
+letterSeq([i|TALLETY],[LETTER|LETTERS]):-
+                         alpha(LETTER),
+                         letterSeq(TALLETY, LETTERS).
+letterSeq([],_):- write('invalid Hollerith string').
+letterSeq(_,[]):- write('invalid Hollerith string').
+
+convert([],[]).
+convert([48|RestAscii],[digitZeroSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([49|RestAscii],[digitOneSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([50|RestAscii],[digitTwoSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([51|RestAscii],[digitThreeSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([52|RestAscii],[digitFourSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([53|RestAscii],[digitFiveSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([54|RestAscii],[digitSixSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([55|RestAscii],[digitSevenSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([56|RestAscii],[digitEightSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([57|RestAscii],[digitNineSymbol|RestList]):-
+                         convert(RestAscii,RestList).
+convert([72|RestAscii],[hollerith|RestList]):-
+                         convert(RestAscii,RestList).
+convert([Ascii|RestAscii],[Char|RestList]):-
+                         name(Char, [Ascii]),
+                         convert(RestAscii,RestList).
+
+test1:-hollerith([digitSixSymbol],hollerith,[a,b,c,d,e,f]).
+test2:-hollerith([digitSixSymbol],hollerith,[a,b,c,d,e]).
+test3:-hollerith([digitSixSymbol],hollerith,[a,b,c,d,e,f,g]).
+test4:-hollerith([digitOneSymbol,digitTwoSymbol],hollerith,
+                 [a,b,c,d,e,f,g,h,i,j,k,l]).
+test5:-hollerith([digitOneSymbol,digitTwoSymbol],hollerith,
+                 [a,b,c,d,e,f,g,h,i,j,k]).
+test6:-hollerith([digitTneSymbol,digitTwoSymbol],hollerith,
+                 [a,b,c,d,e,f,g,h,i,j,k,l,m]).
+test7:-hollerith([digitTwoSymbol,digitFiveSymbol],hollerith,
+                 [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y]).
+test8:-hollerith([digitTwoSymbol,digitFiveSymbol],hollerith,
+                 [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x]).
+test9:-hollerith([digitTwoSymbol,digitFiveSymbol],hollerith,
+                 [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z]).
+
+
+go :- nl,write('>>> Testing hollerith strings <<<'), nl,
+      write('Enter name of file with string: '), getfilename(FileName), nl, 
+      name(FileName, Ascii), convert(Ascii, List), hollerith(List).
+
+getfilename(F) :- get0(C),restfilename(C,Cs),name(F,Cs).
+   restfilename(C,[C|Cs]) :- filechar(C),get0(D),restfilename(D,Cs).
+   restfilename(C,[]).
+
+lower(C) :- 97=<C,C=<122.       % a-z
+upper(C) :- 65=<C,C=<90.        % A-Z
+digit(C)  :- 48=<C,C=<57.       % 0-9
+period(46).      slash(47).
+filechar(C) :- lower(C) ; upper(C) ; digit(C) ; period(C) ; slash(C).
+

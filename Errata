@@ -1,0 +1,437 @@
+------------------------------------------------------------------------
+--- Formal Syntax and Semantics of Programming Languages:    -----------
+--- A Laboratory Based Approach                              -----------
+
+NOTE: A corrected version of the complete text is available online.
+      Contact me to get the link to it.
+
+ERRATA
+
+ Page ix, Line 13
+	ftp.cs.uiowa.edu 
+
+Chapter 1
+
+ Page 17, Line 7 
+	<element> - <object>
+
+ Page 23, Line -9 
+	... programming language, ...
+
+Chapter 2
+
+ Page 45, Line -10 
+	Reduce font size. 
+
+ Page 54, Line -15 
+	element(E) --> [lparen], intexpr(E), [rparen]. 
+
+ Page 57, Line 8 
+	<integer expr> ::= ...
+             | if <boolean expr> then <integer expr> else <integer expr>  
+
+Chapter 3
+
+ Page 73, Line 16 
+	... more divisions than multiplications, 
+
+ Page 76, Under <variable>
+	Name: 'a'
+
+ Page 79, Line 19 
+	then cons(head(table1), table-union(tail(table1), table2))
+
+ Page 81, Line -11 
+	lookup-type(Name(<variable), ...
+
+ Page 82, Lines 4, 8, 13, and 14 
+	<command sequence>. 
+
+ Page 86, After Line 5 
+	Type(<expr>) <-
+  		lookup-type(Name(<variable>,Symbol-table(<command>)) 
+
+ Page 86, Line 8 
+	integer, boolean : error("") 
+
+ Page 87, Line 19 (italicize Type) 
+
+ Page 88, Line 14 
+	if Type(<Boolean element>) = undefined  
+
+ Page 88, After Line 23
+	Type(<boolean expr>) <- Type(<boolean element>)
+
+ Page 89, Line 18 
+	then cons(head(table1), table-union(tail(table1), table2))
+
+ Page 89, Line -11 
+	head([first|rest]) = first 
+
+ Page 89, Line -10 
+	tail([first|rest]) = rest 
+
+ Page 89, Line -8 
+	cons(first,rest) = [first|rest] 
+
+ Page 90, Line -1
+        "example of a string literal"
+
+ Page 91, Header 
+	3.2 AN ATTRIBUTE GRAMMAR FOR WREN	91 
+
+ Page 91, Line -13
+	... third context conditions:
+
+ Page 102, Line 1 
+	element([num(N)],SymbolTable,Type) --> [num(N)].
+
+ Page 102, Line 4 
+	{ looktype(I,SymbolTable,VarType),
+
+Chapter 4
+
+ Page 118, Line 15
+        DECLSEQ declaraton seq, DECL declartion.
+
+
+ Page 129, Line -5
+        DECLSEQ declaraton seq, DECL declartion.
+
+
+Chapter 5
+
+ Page 155, Line -2 and Page 156, Line 1
+	(\x . (\f . f (succ x)) (\z . (\g . (\y . (add (mul (g y) x)) z)))) 
+							((\z . (add z 3)) 5)
+
+ Page 159, Line 14   
+	a) (\f . f add (f mul (f add 5))) (\g . \x . g x x)
+
+ Page 159, Lines -5 and -6 
+	a) Curry (Uncurry h) => h
+	b) Uncurry (Curry h) (Pair r s) => h (Pair r s) 
+
+Chapter 6
+
+ Page 169, Line -14 
+	(#t (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))) 
+
+ Page 171, Line -4 
+	... (cadr (assoc ide env))) 
+
+Chapter 7
+
+ Page 201, Line 20
+	<integer expr>2
+
+ Page 204, Line 3
+	result
+
+ Page 204, Lines 11 and 12
+	temporary(Temp(<command>)+1)
+
+ Page 206, Line -9
+   	[(JF ...
+
+ Page 208, Line 1
+	program should be bold
+
+ Page 208, Line -10
+	read should be bold
+
+ Page 208, Lines -4 and -5
+        temporary(Temp(<command>)+1)
+
+ Page 209, Lines 7, 17, and -13
+	[(JF ...
+
+ Page 210, Line 7
+	Temp(<boolean expr>) <- Temp(<expr>)
+
+ Page 211, Lines 7 and 9
+	temporary(Temp(<boolean expr>)+1)
+
+ Page 211, Lines 18 and 20
+	temporary(Temp(<boolean term>)+1)
+
+ Page 211, Line 22
+	Temp(<boolean element>) <- Temp(<boolean term>)+1
+
+ Page 211, Line -5
+	optimize(Code(<integer expr>)2,Temp(<comparison>),SUB),
+
+ Page 211, Line -5
+	SUB should be sans-serif
+
+ Page 214, Line -6 
+	<integer expr> ::=
+            if <boolean expr> then <integer expr>1 else <integer expr>2 
+
+ Page 214, Line -3
+	<integer expr> ::=
+	    begin <command sequence> return <integer expr> end
+
+ Page 221, Line -2
+        pretty-print predicate ...
+
+ Page 222, Lines 7, 8, 9, and 11
+        exercises 8, 9, 10, and 11
+
+Chapter 8
+
+ Page 241, Line 2 
+	bid : bexp    bid in Bid
+
+ Page 254, Lines 3 and 4 
+	Replace each "bie" by "be" 
+
+Chapter 9
+
+ Page 273, Line 13 
+	Command ::= while Expression do Command+
+
+ Page 276, Line 16 
+	denotational semantics supports the substitution of ...
+
+ Page 278, Line -8
+	Delete Clear from <expression> production
+
+ Page 280, Line -1 
+	affects these four values. 
+
+ Page 282, Lines -11, -10 
+	...updating the accumulator and the display.  
+
+ Page 283, Lines 9, 10, and 11 
+	compute [+] (a,op,d,m) = (op(a,d),plus,op(a,d),m) 
+	compute [-] (a,op,d,m) = (op(a,d),minus,op(a,d),m) 
+	compute [x] (a,op,d,m) = (op(a,d),times,op(a,d),m) 
+
+ Page 284, Line -1 
+	... perform [E Clear] = perform [Clear].  
+
+ Page 285, Lines 10 and 11
+	State = Integer x Integer x (clear + unclear), representing 
+        the display, memory, and a "clear" flag. 
+
+ Page 286, Line 4
+	with the one in Figure 1.18 ...
+
+ Page 289, Line 17 
+	Remember that the semantic domain Store ...
+
+ Page 297, Line  -3
+	evaluate [0] 
+
+ Page 300, Lines 10 and 11 
+	evaluate [100]  and  less(22,100) 
+
+ Page 303, Lines 6 and 7
+	e) if E then (if E then C1 else C2) else C3  and if E then C1 else C3 
+	f) (while E do C1); if E then C2 else C3 and  (while E do C1); C3 
+
+ Page 304, Line -15 
+	Provide a denotational definition ...
+
+ Page 308, Line -10 
+	state(Sto,Inp,Outp).
+
+ Page 309, Line -14 
+	multiplication, or, ...
+
+ Page 314, Line 3
+	var a : integer;
+
+ Page 316, Line -7
+	delete first parenthesis
+
+ Page 320, Line 14
+        proc = 
+  \loc . execute [if n>0 then s:=s+n; sum(n-1)] extendEnv(env1,n,var(loc))
+
+ Page 322, Line -14
+	n := 4; fac(n); write f
+
+ Page 322, Line -8 
+	storable values
+
+ Page 323, Line -8 
+	function Identifier (Identifier):Type is Declaration 
+
+ Page 323, Exercise 10 
+	Remove the assignment command, parameter passing, the read ...
+	Also consider the values unused and undefined as the same. 
+
+ Page 325, Line 1 
+	... need to be altered ...
+
+ Page 326, Line 4 
+	check [C] overlay((elaborate [D] emptyEnv), env) 
+
+ Page 326, Lines 7 and 8 
+	This equation is incorrect since the expression cannot see 
+	identifiers from enclosing blocks. I have a corrected version
+        that uses two environments in elaborate. See the course web page.
+
+ Page 337, Lines 2 and 7 
+	italicize emptyEnve, identityCont, emptySto, and extendEnv 
+
+Chapter 10
+
+ Page 352, Line 3 
+	... 1<=i<=n} union {bottom} with the ...
+
+ Page 353, Line -4 
+	... for i>=1 plus a new bottom element. 
+
+ Page 364, Line -4
+        ... for all proper n in N. 
+
+ Page 369, Line 18 
+	f(1) = f(3) = f(1) = ...
+
+ Page 376, Line -13
+	F f d = f <F1 f d, F2 f d,..., Fn f d> for all f in D^n->D and 
+        d in D^n is also continuous.
+
+ Page 376, Line -11 
+	... and F f d = f <F1 f d> for all f in D->D and d in D.
+
+ Page 380, Line 23 
+	W0 bottom <= W1 bottom <= W2 bottom <= W3 bottom <= ...
+
+ Page 391, Line 3
+        known such expression, ...
+
+ Page 391, Lines 17 and 18 
+		=> (\f . f ((\x . f (x x)) (\x . f (x x)))) E
+		=> (\f . f (f ((\x . f (x x)) (\x . f (x x))))) E
+
+ Page 393, Line 19 
+	=>  4*3*((fix Fac) 2)  =>  4*3*((Fac (fix Fac)) 2)
+
+Chapter 11
+
+ Page 404, Line -5 
+	Subscript on Q1.
+
+ Page 410, Line -19 
+	... and b>0 } 
+
+ Page 416, Line 2 
+	... of two positive integers ...
+
+ Page 416, Line -7
+        { M>=0 and K>=0 }
+
+ Page 416, Line -5 
+        { result=bk and M=b0+b1*2+...+bj*2^j+... where bj=0 or 1 }
+
+ Page 417, Line 16 
+       while sum<=1000 do
+
+ Page 417, Line -7
+       { N>=2 }
+
+ Page 424, Lines 11 and -11 
+	procedure p(f : integer) is		procedure p(f : integer) is 
+	("procedure", "integer", and "is" are all bold)
+
+ Page 428, First 12 lines 
+	Case 2: n> 0. 
+	The recursive assumption with f=n-1 gives 
+	   { n = K >= 0  and n > 0 }  =>
+	   { n-1 = K-1 >= 0 }
+	   	factorial(n-1)
+	   { fact = (n-1)! and n-1 = K-1 }  =>
+	   { fact = (n-1)! }
+	The Assign rule gives 
+	   { fact = (n-1)! }  =>
+	   { n*fact = n*(n-1)!  }
+	   	fact := n * fact
+	   { fact = n*(n-1)! = n! }, which is the desired postcondition. 	
+
+ Page 429, Line -6 
+	write x 
+
+ Page 430, Line 6 
+       "copy" should not be bold
+
+ Page 430, Line 18 
+	program multiply is 
+
+ Page 430, Line -12 
+	{ m = A*B }
+
+ Page 433, Line 11 
+	P => E in W 
+
+ Page 433, Line -5 
+	a) (n >= 0 and k <= n and f = k! and OUT = [ ]) => (n - k >= 0)
+
+
+ Page 434, Line 2 and Page 436, Line 2 
+	section 11.2
+
+ Page 436, Line 11 
+	m := m*m; 
+
+Chapter 12
+
+ Page 467, Line 16 
+	let B be an arbitrary model of the specification. 
+
+ Page 470, Line 11 
+	6.  Consider ...
+
+ Page 471, Line 1 
+	12.3 USING ALGEBRAIC SPECIFICATIONS
+
+Chapter 13
+
+ Page 520, Line -12
+	give the given Integer
+
+ Page 527, Line 10 
+	then instead of "and then"
+
+ Page 529, 530, 555, and 556 
+	Change font in each value of a literal term:
+	value of 12     (12 is serif)
+
+ Page 529, Lines 7 and 9 
+	then instead of "and then"
+
+ Page 538, Line -12
+        execution of the loop body ...
+
+ Page 546, Line 11 
+	that sets it into action. 
+
+ Page 555, After line 6 
+	var n : integer;	-- D4
+
+ Page 555, Line 7 
+	procedure change is	-- D5
+
+ Page 555, Line 15 
+	true should be boldface
+
+ Page 555, Line -11, -10, -9 
+	run [ program I is D1 D2 D3 D4 D5 begin C1; C2; C3; C4 end ] 
+      	  = elaborate [ D1 D2 D3 D4 D5 ] hence execute [ C1; C2; C3; C4 ]
+	  = elaborate D1 before elaborate D2 before elaborate D3 
+				before elaborate D4 before elaborate D5
+
+  Page 555, After line -1 
+	elaborate D4 = allocate a cell then bind n to the given Cell 
+
+ Page 556, Line 1 
+	elaborate D5 = 
+
+Appendix A
+
+ Page 570, Line -2 
+	Delete "X = mary;". 
+

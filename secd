@@ -1,0 +1,155 @@
+
+%   SECD: Interpreting the Applied Lambda Calculus
+%   ====  ============ === ======= ====== ========
+
+%  SECD interpreter following a pass by value reduction strategy
+
+%  File: secd   
+
+%------------------------------------------------------------------------------
+
+eval(cfg([Result|T],Env,[],nil), Result).
+
+eval(Config,Result) :- transform(Config,NewConfig), !, 
+                       eval(NewConfig,Result).
+
+%------------------------------------------------------------------------------
+
+transform(cfg(S,E,[con(K)|C],D), cfg([con(K)|S],E,C,D)).                    % 1
+
+transform(cfg(S,E,[var(X)|C],D), cfg([VX|S],E,C,D)) :- applyEnv(E,X,VX).    % 2
+
+transform(cfg(S,E,[comb(Rator,Rand)|C],D), cfg(S,E,[Rator,Rand,@|C],D)).    % 3
+
+transform(cfg(S,E,[lamb(X,B)|C],D),                                         % 4
+                            cfg([closure(X,B,E)|S],E,C,D)).
+
+transform(cfg([con(Rand),con(Rator)|S],E,[@|C],D), cfg([Result|S],E,C,D))   % 5
+                                             :- compute(Rator,Rand,Result).
+
+transform(cfg([Rand,closure(X,B,E1)|T],E,[@|C],D),                          % 6
+                                    cfg([],E2,[B],cfg(T,E,C,D)))  
+                                             :- extendEnv(E1,X,Rand,E2).
+
+transform(cfg([H|S],Env,[],cfg(S1,E1,C1,D1)), cfg([H|S1],E1,C1,D1)).        % 7
+
+%------------------------------------------------------------------------------
+
+compute(succ,N,con(R)) :- R is N+1.
+compute(pred,N,con(R)) :- N>0, R is N-1.  compute(pred,0,con(0)).
+compute(sqr,N,con(R)) :- R is N*N.
+compute(add,N,con(add(N))).    compute(add(M),N,con(R)) :- R is M+N.
+compute(sub,N,con(sub(N))).    compute(sub(M),N,con(R)) :- R is M-N.
+compute(mul,N,con(mul(N))).    compute(mul(M),N,con(R)) :- R is M*N.
+compute(div,N,con(div(N))).    
+compute(div(M),0,con(0)) :- write('Division by zero'),nl,abort.
+compute(div(M),N,con(R)) :- R is M//N.
+compute(less,N,con(less(N))).  
+compute(less(M),N,con(true)) :- M < N.
+compute(less(M),N,con(false)) :- M >= N.
+compute(zerop,0,con(true)).        compute(zerop,N,con(false)) :- N=\=0.  
+
+%------------------------------------------------------------------------------
+
+extendEnv(Env,Ide,Dv,env(Ide,Dv,Env)). 
+
+applyEnv(env(Ide,Dv,Env),Ide,Dv). 
+applyEnv(env(Ide1,Dv,Env),Ide2,Dv2) :- applyEnv(Env,Ide2,Dv2).
+applyEnv(nil,Ide,var(Ide)). 
+
+printEnv(nil) :- nl.
+printEnv(env(Ide,Dv,Env)) :- write(Ide),write('-->'),write(Dv),nl,printEnv(Env).
+
+pp(var(X)) :- write(X).        pp(con(C)) :- write(C).
+pp(lamb(X,E)) :- write('(L '),write(X),tab(1),pp(E),write(')').
+pp(closure(X,B,E)) :- write('(L '),write(X),tab(1),pp(B),write(')'),
+                      (E=nil ;  nl,tab(9),write(' where'),pp(E),write(' end')).
+pp(comb(Rator,Rand)) :- write('('),pp(Rator),tab(1),pp(Rand),write(')').
+pp(nil).
+pp(env(Ide,Dv,Env)) :- tab(1),write(Ide),write('='),pp(Dv),pp(Env).
+
+%------------------------------------------------------------------------------
+
+go :- nl,write('>>> SECD: Interpreting an Applied Lambda Calculus <<<'),nl,
+      write('Enter name of source file:  '),nl,getfilename(FileName),nl,
+      see(FileName), scan(Tokens),write('Successful Scan'),nl, !,
+%     nl, write(Tokens), nl, nl,
+      seen, program(prog(E),Tokens,[eop]),write('Successful Parse'),nl,nl, !,
+%     write(prog(E)), nl, nl,
+      eval(cfg([],nil,[E],nil),Result),write('Result =  '),pp(Result),nl.
+
+%------------------------------------------------------------------------------
+%---------  Parser  -----------------------------------------------------------
+
+program(prog(E)) --> expr(E).
+
+expr(var(X)) --> [var(X)].       expr(con(X)) --> [num(X)].
+expr(con(add)) --> [add].        expr(con(sub)) --> [sub].
+expr(con(mul)) --> [mul].        expr(con(div)) --> [div].
+expr(con(less)) --> [less].      expr(con(nott)) --> [not].
+expr(con(succ)) --> [succ].      expr(con(pred)) --> [pred].
+expr(con(zerop)) --> [zerop].    expr(con(sqr)) --> [sqr].
+expr(con(true)) --> [true].      expr(con(false)) --> [false].
+expr(con(if)) --> [if].         
+expr(lamb(X,E)) --> [lparen],['L'],[var(X)],expr(E1),restlamb(E1,E).
+
+ restlamb(E,E) --> [rparen].
+ restlamb(var(Y),lamb(Y,E)) --> expr(E1),restlamb(E1,E).
+
+expr(E) --> [lparen],expr(E1),expr(E2),restcomb(E1,E2,E).
+
+ restcomb(E1,E2,comb(E1,E2)) --> [rparen].
+ restcomb(E1,E2,E) --> expr(E3), restcomb(comb(E1,E2),E3,E).
+  
+%------------------------------------------------------------------------------
+
+getfilename(F) :- get0(C), restfilename(C,Cs), name(F,Cs), !.
+  restfilename(C,[C|Cs]) :- filechar(C), get0(D), restfilename(D,Cs).
+  restfilename(C,[]).
+
+%------------------------------------------------------------------------------
+%---------  Scanner  ----------------------------------------------------------
+
+scan([T|Lt]) :-  tab(4), getch(C), gettoken(C, T, C1), restprog(T, C1, Lt).
+
+getch(C) :- get0(C),(endline(C),nl,tab(4) ; endfile(C),nl ; put(C)).
+
+restprog(eop, C, []).        % end of file reached with previous char
+restprog(T,   C, [U|Lt]) :- gettoken(C, U, D), restprog(U, D, Lt).
+
+gettoken(C, eop, 0) :- endfile(C).  
+gettoken(C, T,  D)  :- single(C,T), getch(D).
+gettoken(C, T,  E)  :- letter(C), getch(D), restvar(D, Lc, E), 
+                       name(V, [C|Lc]), (reswd(V),T=V ; T=var(V)).
+  restvar(C, [C|Lc], E) :- idchar(C), getch(D),restvar(D,Lc,E).
+  restvar(C, [],     C).   % end variable if C is not valid.
+gettoken(C, num(N), E) :- digit(C), getch(D), restnum(D, Lc, E),
+                          name(N, [C|Lc]).
+  restnum(C, [C|Lc], E) :- digit(C), getch(D), restnum(D, Lc, E).
+  restnum(C, [],     C).   % end number if C is not a digit
+gettoken(C, T, E)   :- whitespace(C), getch(D), gettoken(D,T,E).
+gettoken(C, T, E)   :- write('Illegal character: '), put(C), nl, abort.
+
+reswd(define).      reswd('L').         reswd(succ).   reswd(pred).
+reswd(add).         reswd(sub).         reswd(mul).    reswd(div).
+reswd(zerop).       reswd(if).          reswd(sqr).    reswd(less).
+reswd(true).        reswd(false).       reswd(not).
+
+single(40,lparen).  single(41,rparen).  single(61,equal).
+
+%------------------------------------------------------------------------------
+
+lower(C) :- 97=<C,C=<122.       % a-z
+upper(C) :- 65=<C,C=<90.        % A-Z
+digit(C)  :- 48=<C,C=<57.       % 0-9
+
+space(32).     tabch(9).      period(46).      slash(47).
+endline(10).   endfile(26).   endfile(-1).     prime(39).
+
+whitespace(C) :- space(C) ; tabch(C) ; endline(C).
+letter(C) :- lower(C) ; upper(C). 
+idchar(C) :- letter(C) ; digit(C) ; prime(C).
+filechar(C) :- letter(C) ; digit(C) ; period(C) ; slash(C).
+
+%------------------------------------------------------------------------------
+

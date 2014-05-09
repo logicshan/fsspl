@@ -1,0 +1,266 @@
+%   Interpretating Wren via Denotational Semantics
+%   ============== ==== === ============ =========
+
+%     Interactive input and output
+
+% File: ds
+
+%------------------------------------------------------------------------------
+%--  Store : Identifier --> SV = Integer+Boolean ------------------------------
+
+updateSto(sto(Ide,V,Sto),Ide,Val,sto(Ide,Val,Sto)).
+updateSto(sto(I,V,Sto),Ide,Val,sto(I,V,NewSto)) :- 
+                                               updateSto(Sto,Ide,Val,NewSto).
+updateSto(nil,Ide,Val,sto(Ide,Val,nil)).
+
+applySto(sto(Ide,Val,Sto),Ide,Val).
+applySto(sto(I,V,Sto),Ide,Val) :- applySto(Sto,Ide,Val).
+applySto(nil,Ide,undefined) :- write('Undefined variable'),nl,abort.
+
+%------------------------------------------------------------------------------
+%--  meaning : Program --> Store  ---------------------------------------------
+
+meaning(prog(Dec,Cmd),Sto) :- execute(Cmd,nil,Sto). 
+
+%------------------------------------------------------------------------------
+%--  execute : Command --> Store --> Store  -----------------------------------
+
+execute([Cmd|Cmds],Sto,NewSto) :- execute(Cmd,Sto,TpSto), 
+                                  execute(Cmds,TpSto,NewSto).
+execute([],Sto,Sto).
+
+execute(assign(Ide,Exp),Sto,NewSto) :- evaluate(Exp,Sto,Val), 
+                                       updateSto(Sto,Ide,Val,NewSto).
+
+execute(skip,Sto,Sto).
+
+execute(if(Test,Then),Sto,NewSto) :- evaluate(Test,Sto,Val),
+                                     select(Val,Then,Sto,NewSto).
+  select(bool(true),Then,Sto,NewSto)  :- execute(Then,Sto,NewSto).
+  select(bool(false),Then,Sto,Sto).
+
+execute(if(Test,Then,Else),Sto,NewSto) :- evaluate(Test,Sto,Val),
+                                          branch(Val,Then,Else,Sto,NewSto).
+
+  branch(bool(true),Then,Else,Sto,NewSto)  :- execute(Then,Sto,NewSto).
+  branch(bool(false),Then,Else,Sto,NewSto) :- execute(Else,Sto,NewSto).
+
+execute(while(Test,Body),Sto,NewSto) :- loop(Test,Body,Sto,NewSto).
+
+loop(Test,Body,Sto,NewSto) :- evaluate(Test,Sto,Val), 
+                              iterate(Val,Test,Body,Sto,NewSto).
+
+  iterate(bool(true),Test,Body,Sto,NewSto) :- execute(Body,Sto,TpSto), 
+                                        loop(Test,Body,TpSto,NewSto).
+  iterate(bool(false),Test,Body,Sto,Sto).
+
+execute(read(Ide),Sto,NewSto) :- write('Input:  '), nl, readnum(N), 
+                                 updateSto(Sto,Ide,int(N),NewSto).
+
+execute(write(Exp),Sto,Sto) :- evaluate(Exp,Sto,Val), int(M)=Val, 
+                               write('Output = '), write(M),nl.
+
+%------------------------------------------------------------------------------
+%--  evaluate : Expression --> Store --> EV = Integer+Boolean  ----------------
+
+evaluate(ide(Ide),Sto,Val) :- applySto(Sto,Ide,Val).
+
+evaluate(num(N),Sto,int(N)).
+evaluate(true,Sto,bool(true)).
+evaluate(false,Sto,bool(false)).
+
+evaluate(minus(E),Sto,int(N)) :- evaluate(E,Sto,Val), Val=int(M), N is -M.
+evaluate(bnot(E),Sto,NotE) :- evaluate(E,Sto,Val), negate(Val,NotE).
+
+negate(bool(true),bool(false)).         negate(bool(false),bool(true)).
+
+evaluate(exp(Opr,E1,E2),Sto,Val) :- evaluate(E1,Sto,V1), 
+                                    evaluate(E2,Sto,V2), 
+                                    compute(Opr,V1,V2,Val).
+
+compute(plus,int(M),int(N),int(R))    :- R is M+N.
+compute(minus,int(M),int(N),int(R))   :- R is M-N.
+compute(times,int(M),int(N),int(R))   :- R is M*N.
+compute(divides,int(M),int(0),int(0)) :- write('Division by zero'),nl,abort.
+compute(divides,int(M),int(N),int(R)) :- R is M//N.
+
+evaluate(bexp(Opr,E1,E2),Sto,Val) :- evaluate(E1,Sto,V1),
+                                     evaluate(E2,Sto,V2), 
+                                     compute(Opr,V1,V2,Val).
+
+compute(equal,int(M),int(N),bool(true)) :- M =:= N.   
+compute(equal,int(M),int(N),bool(false)).
+
+compute(neq,int(M),int(N),bool(false))  :- M =:= N.   
+compute(neq,int(M),int(N),bool(true)).
+
+compute(less,int(M),int(N),bool(true))  :- M < N.     
+compute(less,int(M),int(N),bool(false)).
+
+compute(grtr,int(M),int(N),bool(true))  :- M > N.     
+compute(grtr,int(M),int(N),bool(false)).
+
+compute(lteq,int(M),int(N),bool(true))  :- M =< N.    
+compute(lteq,int(M),int(N),bool(false)).
+
+compute(gteq,int(M),int(N),bool(true))  :- M >= N.    
+compute(gteq,int(M),int(N),bool(false)).
+
+compute(and,bool(true),bool(true),bool(true)).    
+compute(and,bool(P),bool(Q),bool(false)).
+
+compute(or,bool(false),bool(false),bool(false)).  
+compute(or,bool(P),bool(Q),bool(true)).
+
+%------------------------------------------------------------------------------
+%---------  Parser  -----------------------------------------------------------
+
+program(AST) --> [program],[ide(I)],[is],blck(AST).
+
+blck(prog(Decs,Cmds)) --> decs(Decs),[begin],cmds(Cmds),[end].
+
+decs(Decs) --> dec(Dec), restdecs(Dec,Decs).
+  restdecs(Dec,[Dec|Decs]) --> decs(Decs).
+  restdecs(Dec,[Dec])      --> [].
+decs([]) --> [].
+
+dec(dec(T,Vars)) --> [var], varlist(Vars), [colon], type(T), [semicolon].
+
+type(integer) --> [integer].          type(boolean) --> [boolean].
+
+varlist(Vars) --> [ide(Var)], restvars(Var,Vars).
+  restvars(Var,[Var|Vars]) --> [comma], varlist(Vars).
+  restvars(Var,[Var])      --> [].
+
+cmds(Cmds) --> command(Cmd), restcmds(Cmd,Cmds).
+  restcmds(Cmd,[Cmd|Cmds]) --> [semicolon], cmds(Cmds).
+  restcmds(Cmd,[Cmd])      --> [].
+
+command(skip) --> [skip].    
+
+command(read(I))  --> [read], [ide(I)].
+
+command(write(E)) --> [write], expr(E). 
+
+command(Cmd) --> [if],boolexpr(Test),[then],cmds(Then),restif(Test,Then,Cmd).
+  restif(Test,Then,if(Test,Then,Else)) --> [else],cmds(Else),[end],[if].
+  restif(Test,Then,if(Test,Then)) --> [end],[if].
+
+command(while(Test,Body)) --> 
+                       [while],boolexpr(Test), [do], cmds(Body), [end],[while].
+
+command(assign(V,E)) --> [ide(V)], [assign], expr(E).
+
+expr(E) --> intexpr(E).                 expr(E) --> boolexpr(E).
+
+intexpr(E) --> term(T), restintexpr(T,E).
+  restintexpr(T,E) --> weakop(Op), term(T1), restintexpr(exp(Op,T,T1),E).
+  restintexpr(E,E) --> [].
+
+term(T) --> element(P), restterm(P,T).
+  restterm(P,T) --> strongop(Op), element(P1), restterm(exp(Op,P,P1),T).
+  restterm(T,T) --> [].
+
+element(num(N)) --> [num(N)].            element(ide(I)) --> [ide(I)].
+element(E) --> [lparen], intexpr(E), [rparen].
+element(minus(E)) --> [minus], element(E).
+
+boolexpr(E) --> boolterm(T),restboolexpr(T,E).
+  restboolexpr(T,E) --> [or], boolterm(T1), restboolexpr(bexp(or,T,T1),E).
+  restboolexpr(E,E) --> [].
+
+boolterm(T) --> boolelement(P), restboolterm(P,T).
+  restboolterm(P,T) --> [and], boolelement(P1), restboolterm(bexp(and,P,P1),T).
+  restboolterm(T,T) --> [].
+
+boolelement(true) --> [true].             boolelement(false) --> [false].
+boolelement(ide(I)) --> [ide(I)].         boolelement(K) --> comparison(K).
+boolelement(E) --> [lparen], boolexpr(E), [rparen].
+boolelement(bnot(E)) --> [not],[lparen],boolexpr(E),[rparen].
+
+comparison(bexp(R,E1,E2)) --> intexpr(E1),rel(R),intexpr(E2).
+
+rel(equal) --> [equal].  rel(neq) --> [neq].    rel(less) --> [less].    
+rel(grtr) --> [grtr].    rel(gteq) --> [gteq].  rel(lteq) --> [lteq].
+weakop(plus) --> [plus].      weakop(minus) --> [minus].
+strongop(times) --> [times].  strongop(divides) --> [divides].
+
+%------------------------------------------------------------------------------
+%-- Utilities -----------------------------------------------------------------
+
+go :- nl,write('>>> Interpreting Wren via Denotational Semantics <<<'), nl, nl,
+      write('Enter name of source file: '), nl, getfilename(FileName), nl, 
+      see(FileName), scan(Tokens), seen, write('Scan successful'), nl,!,
+%     write(Tokens), nl, nl,
+      program(Parse,Tokens,[eop]), write('Parse successful'), nl,!,
+%     write(Parse), nl, nl,
+      meaning(Parse,Sto), write('Final Store:'),nl,printSto(Sto).
+
+printSto(nil) :- nl.
+printSto(sto(L,V,S)) :- write(L),tab(4),write(V),nl,printSto(S).
+
+readnum(M) :- get0(C),getnum(C,Cs,S),name(N,Cs), M is S*N.
+  getnum(45,Cs,-1)  :- get0(D), restnum(D,Cs).
+  getnum(C,[C|Cs],1)  :- digit(C),get0(D),restnum(D,Cs).
+    restnum(C,[C|Cs]) :- digit(C),get0(D),restnum(D,Cs).
+    restnum(C,[]).
+ 
+getfilename(F) :- get0(C),restfilename(C,Cs),name(F,Cs).
+   restfilename(C,[C|Cs]) :- filechar(C),get0(D),restfilename(D,Cs).
+   restfilename(C,[]).
+
+%------------------------------------------------------------------------------
+%---------  Scanner  ----------------------------------------------------------
+
+scan([T|Lt]) :-  tab(4), getch(C), gettoken(C, T, D), restprog(T, D, Lt).
+
+getch(C) :- get0(C), (endline(C),nl,tab(4) ; endfile(C),nl ; put(C)).
+
+restprog(eop, C, []).        % end of file reached with previous character
+restprog(T,   C, [U|Lt]) :- gettoken(C, U, D), restprog(U, D, Lt).
+
+gettoken(C, eop, 0) :- endfile(C).  
+gettoken(C, T, D) :- single(C,T), getch(D).
+gettoken(C, T, E) :- double(C,U),getch(D),(pair(C,D,T),getch(E) ; T=U,E=D).
+gettoken(C, T, E) :- lower(C), getch(D), restid(D, Lc, E),   
+                     name(I, [C|Lc]), (reswd(I),T=I ; T=ide(I)).
+  restid(C, [C|Lc], E) :- idchar(C), getch(D),restid(D,Lc,E).
+  restid(C, [],     C).    % end identifier if C is not id character
+gettoken(C, num(N), E) :- digit(C), getch(D), restnum(D, Lc, E),  
+                          name(N, [C|Lc]). 
+  restnum(C, [C|Lc], E) :- digit(C), getch(D), restnum(D, Lc, E).
+  restnum(C, [],     C).   % end number if C is not a digit
+gettoken(C, T, E) :- whitespace(C), getch(D), gettoken(D,T,E).
+gettoken(C, T, E) :- write('Illegal character: '), put(C), nl, abort.
+
+reswd(program).  reswd(is).       reswd(begin).    reswd(end).   
+reswd(var).      reswd(integer).  reswd(boolean).  reswd(read). 
+reswd(write).    reswd(while).    reswd(do).       reswd(if).    
+reswd(then).     reswd(else).     reswd(skip).     reswd(or).  
+reswd(and).      reswd(true).     reswd(false).    reswd(not). 
+
+single(40,lparen).   single(41,rparen).    single(42,times). 
+single(43,plus).     single(44,comma).     single(45,minus). 
+single(47,divides).  single(59,semicolon). single(61,equal).
+
+double(58,colon).    double(60,less).      double(62,grtr).   
+
+pair(58,61,assign).       % :=
+pair(60,61,lteq).         % <=
+pair(60,62,neq).          % <>
+pair(62,61,gteq).         % >=
+
+%-----------------------------------------------------------------------
+
+lower(C) :- 97=<C,C=<122.       % a-z
+upper(C) :- 65=<C,C=<90.        % A-Z
+digit(C)  :- 48=<C,C=<57.       % 0-9
+
+space(32).     tabch(9).      period(46).      slash(47).     
+endline(10).   endfile(26).   endfile(-1).
+
+whitespace(C) :- space(C) ; tabch(C) ; endline(C).
+idchar(C) :- lower(C) ; digit(C).
+filechar(C) :- lower(C) ; upper(C) ; digit(C) ; period(C) ; slash(C).
+
+%------------------------------------------------------------------------------

@@ -1,0 +1,328 @@
+
+%   Translating into Action Semantics:  Pelican
+%   =========== ==== ====== =========   =======
+
+%   action
+
+%------------------------------------------------------------------------------
+%--  run : Program --> Action    ----------------------------------------------
+
+run(prog(Decs,Cmds),hence(ElaborateD,ExecuteC)) :- 
+                                      elaborate(Decs,ElaborateD),
+                                      execute(Cmds,ExecuteC). 
+
+%------------------------------------------------------------------------------
+%--  elaborate : Declaration --> Action   -------------------------------------
+
+elaborate([],produce(emptybindings)).
+elaborate([Dec|Decs],before(ElaborateDec,ElaborateDecs)) :- 
+                           elaborate(Dec,ElaborateDec),
+                           elaborate(Decs,ElaborateDecs).
+
+elaborate(var(T,var(Ide)),then(allocateacell,bind(Ide,given('Cell')))).
+
+elaborate(con(Ide,E),then(EvaluateE,bind(Ide,given('Value')))) :- 
+                           evaluate(E,EvaluateE). 
+
+elaborate(proc(Ide,Decs,Cmds),
+      recursivelybind(Ide,closureof(
+                            abstractionof(
+                              hence(moreover(rebind,ElaborateD),
+                                    ExecuteC))))) :-
+                           elaborate(Decs,ElaborateD),
+                           execute(Cmds,ExecuteC). 
+
+elaborate(proc(Ide,param(Formal),Decs,Cmds),
+ recursivelybind(Ide,
+       closureof(
+         abstractionof(
+           hence(
+             hence(
+               thence(and(allocateacell,
+                          and(give(given('Value')),
+                              rebind)),
+                      moreover(rebind,
+                               and(bindto(Formal,given('Cell',1)),
+                                   storein(given('Value',2),given('Cell',1))))),
+               moreover(rebind,ElaborateD)),
+             ExecuteC))))) :-
+                    elaborate(Decs,ElaborateD),
+                    execute(Cmds,ExecuteC). 
+
+%------------------------------------------------------------------------------
+%--   execute : Command --> Action  -------------------------------------------
+
+execute([Cmd|Cmds],andthen(ExecuteCmd,ExecuteCmds)) :- 
+                                      execute(Cmd,ExecuteCmd), 
+                                      execute(Cmds,ExecuteCmds).
+execute([],complete).
+
+execute(declare(Decs,Cmds),hence(moreover(rebind,ElaborateD),ExecuteC)) :- 
+                                  elaborate(Decs,ElaborateD),
+                                  execute(Cmds,ExecuteC).
+
+execute(skip,complete).
+
+execute(assign(Ide,Exp),then(and(give(boundto('Cell',Ide)),EvaluateE),
+                             storein(given('Value',2),given('Cell',1)))) :- 
+                 evaluate(Exp,EvaluateE). 
+
+execute(if(Test,Then),
+ then(EvaluateE,or(andthen(check(is(given('Truthvalue'),true)),ExecuteC),
+                  andthen(check(is(given('Truthvalue'),false)),complete)))) :- 
+                             evaluate(Test,EvaluateE),
+                             execute(Then,ExecuteC).
+
+execute(if(Test,Then,Else),
+ then(EvaluateE,or(andthen(check(is(given('Truthvalue'),true)),ExecuteC1),
+                  andthen(check(is(given('Truthvalue'),false)),ExecuteC2)))) :- 
+                             evaluate(Test,EvaluateE),
+                             execute(Then,ExecuteC1),
+                             execute(Else,ExecuteC2).
+
+execute(while(Test,Body),unfolding(
+ then(EvaluateE,or(andthen(check(is(given('Truthvalue'),true)),
+                          andthen(ExecuteC,unfold)),
+                  andthen(check(is(given('Truthvalue'),false)),complete))))) :- 
+                             evaluate(Test,EvaluateE),
+                             execute(Body,ExecuteC).
+
+execute(call(Ide),enact(boundto('Procedure',Ide))).
+
+execute(call(Ide,E),
+then(EvaluateE,enact(application(boundto('Procedure',Ide),given('Value'))))) :- 
+                                  evaluate(E,EvaluateE).
+                 
+%------------------------------------------------------------------------------
+%--   evaluate : Expression --> Action  ---------------------------------------
+
+evaluate(ide(Ide),or(give(storedin('Value',boundto('Cell',Ide))),
+                     give(boundto('Value',Ide)))).
+
+evaluate(num(N),give(valueof(N))).
+
+evaluate(true,give(true)).
+evaluate(false,give(false)).
+
+evaluate(minus(E),then(EvaluateE, give(difference(0,given('Integer'))))) :-
+                         evaluate(E,EvaluateE). 
+
+evaluate(bnot(E),then(EvaluateE,give(not(given('Truthvalue'))))) :- 
+                         evaluate(E,EvaluateE).
+
+evaluate(plus(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(sum(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(minus(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(difference(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(times(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(product(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(divides(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(quotient(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(equal(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(is(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(less(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(lessthan(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(grtr(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(greaterthan(given('Integer',1),given('Integer',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(neq(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(not(is(given('Integer',1),given('Integer',2)))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(lteq(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(not(greaterthan(given('Integer',1),given('Integer',2)))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(gteq(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(not(lessthan(given('Integer',1),given('Integer',2)))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(and(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(both(given('Truthvalue',1),given('Truthvalue',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+evaluate(or(E1,E2),
+        then(and(EvaluateE1,EvaluateE2),
+             give(either(given('Truthvalue',1),given('Truthvalue',2))))) :- 
+                                        evaluate(E1,EvaluateE1), 
+                                        evaluate(E2,EvaluateE2). 
+
+%------------------------------------------------------------------------------
+
+go :- write('>>> Translating Pelican into Action Semantics  <<<'),nl,nl,
+      write('Enter name of source file: '), nl, getfilename(FileName), nl, 
+      see(FileName), scan(Tokens), seen, write('Scan successful'), nl,!,
+%     write(Tokens), nl, nl,
+      program(AST,Tokens,[eop]), write('Parse successful'), nl,!,
+%     write(AST), nl, nl,
+      run(AST,Action), write('Translated Action:'), nl, 
+      write(Action).
+
+getfilename(F) :- get0(C),restfilename(C,Cs),name(F,Cs).
+   restfilename(C,[C|Cs]) :- filechar(C),get0(D),restfilename(D,Cs).
+   restfilename(C,[]).
+
+%------------------------------------------------------------------------------
+%---------  Parser  ----------------------------------------------------
+
+program(prog(Decs,Cmds)) --> [program],[ide(PName)],[is], 
+                                   decs(Decs),[begin],cmds(Cmds),[end].
+
+decs(Decs) --> dec(Dec),restdecs(Dec,Decs).
+   restdecs(Dec,[Dec|Decs]) --> decs(Decs).
+   restdecs(Dec,[Dec]) --> [].
+decs([]) --> [].
+
+dec(var(T,var(V))) --> [var], [ide(V)], [colon], type(T), [semicolon]. 
+dec(con(Var,Exp)) --> [const], [ide(Var)], [equal], expr(Exp), [semicolon]. 
+dec(D) --> procdec(D),[semicolon].
+
+type(int) --> [integer].        type(bool) --> [boolean].
+
+varlist(Vars) --> [ide(V)], restvars(V,Vars).
+   restvars(V,[V|Vars]) --> [comma], varlist(Vars).
+   restvars(V,[V]) --> [].
+
+procdec(proc(Ide,Decs,Cmds)) --> [procedure], [ide(Ide)], [is], 
+                                   decs(Decs),[begin],cmds(Cmds),[end].
+
+procdec(proc(Ide,param(Frml),Decs,Cmds)) -->
+   [procedure], [ide(Ide)], [lparen], [ide(Frml)],
+                           [colon], type(T), [rparen], [is], 
+                                   decs(Decs),[begin],cmds(Cmds),[end].
+
+cmds(Cmds) --> command(C), restcmds(C,Cmds).
+  restcmds(C,[C|Cmds]) --> [semicolon], cmds(Cmds).
+  restcmds(C,[C])    --> [].
+
+command(declare(Decs,Cmds)) --> [declare], decs(Decs),[begin],cmds(Cmds),[end].
+
+command(skip)     --> [skip].    
+
+command(call(Id)) --> [ide(Id)].
+command(call(Id,E)) --> [ide(Id)], [lparen], expr(E), [rparen].
+
+command(Cmd) --> [if],boolexpr(Test),[then],cmds(Then),restif(Test,Then,Cmd).
+  restif(Test,Then,if(Test,Then,Else)) --> [else],cmds(Else),[end],[if].
+  restif(Test,Then,if(Test,Then)) --> [end],[if].
+
+command(while(Test,Body)) --> 
+                      [while], boolexpr(Test), [do], cmds(Body), [end,while].
+
+command(assign(V,E)) --> [ide(V)], [assign], expr(E).
+
+expr(E) --> intexpr(E).                 expr(E) --> boolexpr(E).
+
+intexpr(E) --> term(T), restintexpr(T,E).
+  restintexpr(T,E) --> [plus], term(T1), restintexpr(plus(T,T1),E).
+  restintexpr(T,E) --> [minus], term(T1), restintexpr(minus(T,T1),E).
+  restintexpr(E,E) --> [].
+
+term(T) --> element(P), restterm(P,T).
+  restterm(P,T) --> [times], element(P1), restterm(times(P,P1),T).
+  restterm(P,T) --> [divides], element(P1), restterm(divides(P,P1),T).
+  restterm(T,T) --> [].
+
+element(num(N)) --> [num(N)].            element(ide(I)) --> [ide(I)].
+element(E) --> [lparen], intexpr(E), [rparen].
+element(minus(E)) --> [minus], element(E).
+
+boolexpr(E) --> boolterm(T),restboolexpr(T,E).
+  restboolexpr(T,E) --> [or], boolterm(T1), restboolexpr(or(T,T1),E).
+  restboolexpr(E,E) --> [].
+
+boolterm(T) --> boolelement(P), restboolterm(P,T).
+  restboolterm(P,T) --> [and], boolelement(P1), restboolterm(and(P,P1),T).
+  restboolterm(T,T) --> [].
+
+boolelement(true) --> [true].          boolelement(false) --> [false].
+boolelement(ide(I)) --> [ide(I)].      boolelement(K) --> comparison(K).
+boolelement(E) --> [lparen], boolexpr(E), [rparen].
+boolelement(bnot(E)) --> [not],[lparen],boolexpr(E),[rparen].
+
+comparison(equal(E1,E2)) --> intexpr(E1),[equal],intexpr(E2).
+comparison(neq(E1,E2)) --> intexpr(E1),[neq],intexpr(E2).
+comparison(less(E1,E2)) --> intexpr(E1),[less],intexpr(E2).
+comparison(grtr(E1,E2)) --> intexpr(E1),[grtr],intexpr(E2).
+comparison(greq(E1,E2)) --> intexpr(E1),[greq],intexpr(E2).
+comparison(lteq(E1,E2)) --> intexpr(E1),[lteq],intexpr(E2).
+
+%------------------------------------------------------------------------------
+%---------  Scanner  ----------------------------------------------------------
+
+scan([T|Lt]) :-  tab(4), getch(C), gettoken(C, T, D), restprog(T, D, Lt).
+
+getch(C) :- get0(C), (endline(C),nl,tab(4) ; endfile(C),nl ; put(C)).
+
+restprog(eop, C, []).        % end of file reached with previous character
+restprog(T,   C, [U|Lt]) :- gettoken(C, U, D), restprog(U, D, Lt).
+
+gettoken(C, eop, 0) :- endfile(C).  
+gettoken(C, T, D) :- single(C,T), getch(D).
+gettoken(C, T, E) :- double(C,U),getch(D),(pair(C,D,T),getch(E) ; T=U,E=D).
+gettoken(C, T, E) :- lower(C), getch(D), restid(D, Lc, E),   
+                     name(I, [C|Lc]), (reswd(I),T=I ; T=ide(I)).
+  restid(C, [C|Lc], E) :- idchar(C), getch(D),restid(D,Lc,E).
+  restid(C, [],     C).    % end identifier if C is not id character
+gettoken(C, num(N), E) :- digit(C), getch(D), restnum(D, Lc, E),  
+                          name(N, [C|Lc]). 
+  restnum(C, [C|Lc], E) :- digit(C), getch(D), restnum(D, Lc, E).
+  restnum(C, [],     C).   % end number if C is not a digit
+gettoken(C, T, E) :- whitespace(C), getch(D), gettoken(D,T,E).
+gettoken(C, T, E) :- write('Illegal character: '), put(C), nl, abort.
+
+reswd(program). reswd(is).      reswd(begin).     reswd(end).
+reswd(const).   reswd(var).     reswd(procedure). reswd(integer).  
+
+reswd(boolean). reswd(skip).    reswd(if).        reswd(then).   
+reswd(else).    reswd(while).   reswd(do).        reswd(read).   
+reswd(write).   reswd(declare). reswd(or).        reswd(not).   
+reswd(and).     reswd(true).    reswd(false).
+
+bool(true).   bool(false).
+
+single(40,lparen). single(42,times). single(59,semicolon). single(44, comma).
+single(41,rparen). single(45,minus). single(43,plus).   single(47,divides). 
+single(61,equal).
+double(58,colon).  double(62,grtr).   double(60,less).
+
+pair(58,61,assign).       % :=
+pair(60,62,neq).          % <>
+pair(60,61,lteq).         % <=
+pair(62,61,gteq).         % >=
+%-----------------------------------------------------------------------
+lower(C) :- 97=<C,C=<122.       % a-z
+upper(C) :- 65=<C,C=<90.        % A-Z
+digit(C) :- 48=<C,C=<57.       % 0-9
+
+space(32).     tabch(9).      period(46).      slash(47).     
+endline(10).   endfile(26).   endfile(-1).
+
+whitespace(C) :- space(C) ; tabch(C) ; endline(C).
+idchar(C) :- lower(C) ; digit(C).
+filechar(C) :- lower(C) ; upper(C) ; digit(C) ; period(C) ; slash(C).
+%------------------------------------------------------------------------------
